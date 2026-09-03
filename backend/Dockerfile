@@ -16,10 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY backend/app ./app
+COPY app ./app
 
 # Cloud Run injects $PORT; default to 8080 (Cloud Run's convention) for
 # local/docker-compose use so the same image needs no CMD override.
