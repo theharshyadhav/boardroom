@@ -1,0 +1,81 @@
+substitutions:
+  _REGION: us-central1
+  _BACKEND_SERVICE: boardmind-backend
+  _FRONTEND_SERVICE: boardmind-frontend
+  _REPO: boardmind
+
+steps:
+  # --- Backend -------------------------------------------------------------
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - backend/Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/backend:$SHORT_SHA
+      - .
+    id: build-backend
+
+  - name: gcr.io/cloud-builders/docker
+    args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/backend:$SHORT_SHA"]
+    id: push-backend
+    waitFor: [build-backend]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_BACKEND_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/backend:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --service-account=boardmind-backend@$PROJECT_ID.iam.gserviceaccount.com
+      - --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_REGION},GOOGLE_GENAI_USE_VERTEXAI=1
+      - --no-allow-unauthenticated
+    id: deploy-backend
+    waitFor: [push-backend]
+
+  # --- Frontend --------------------------------------------------------------
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - frontend/Dockerfile
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=${_BACKEND_URL}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/frontend:$SHORT_SHA
+      - .
+    id: build-frontend
+    waitFor: [deploy-backend]
+
+  - name: gcr.io/cloud-builders/docker
+    args: [push, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/frontend:$SHORT_SHA"]
+    id: push-frontend
+    waitFor: [build-frontend]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_FRONTEND_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/frontend:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+    id: deploy-frontend
+    waitFor: [push-frontend]
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/backend:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/frontend:$SHORT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+# NOTE: _BACKEND_URL must be set as a substitution (or via `gcloud builds
+# submit --substitutions=_BACKEND_URL=...`) to the backend's Cloud Run URL
+# from a prior deploy, since the frontend needs it baked in at build time.
+# deploy/setup_gcp.sh handles this ordering for you on first deploy.

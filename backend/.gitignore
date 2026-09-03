@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+.env
+boardmind.db
+server.log
+.pytest_cache/

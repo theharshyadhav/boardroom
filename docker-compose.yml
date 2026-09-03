@@ -1,0 +1,43 @@
+# Local development against real GCP services (per your setup: a live GCP
+# project with Firestore/Pub/Sub/Vertex AI already enabled).
+#
+# Usage:
+#   1. cp backend/.env.example backend/.env and fill in GOOGLE_CLOUD_PROJECT
+#      plus the other GOOGLE_* values for your project.
+#   2. Auth once on the host:  gcloud auth application-default login
+#      This writes ~/.config/gcloud/application_default_credentials.json,
+#      which is mounted read-only into the backend container below so the
+#      google-cloud-* SDKs pick it up via Application Default Credentials —
+#      no key file baked into the image, ever.
+#   3. docker compose up --build
+#
+# On Cloud Run, skip step 2 entirely — the attached service account is used
+# automatically. Nothing in the application code changes between here and
+# there; only how credentials are supplied differs.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8080"
+    env_file:
+      - backend/.env
+    environment:
+      - PORT=8080
+      - GOOGLE_APPLICATION_CREDENTIALS=/gcp/adc.json
+      - SERVICE_BASE_URL=http://localhost:8000
+    volumes:
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/gcp/adc.json:ro
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:8080"
+    depends_on:
+      - backend
