@@ -34,3 +34,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+Set `NEXT_PUBLIC_API_URL` to `https://boardroom-api-25xh.onrender.com` in the Vercel
+project settings for every environment. The API client has the same value as a
+production fallback, but the Vercel setting is recommended because Next.js embeds
+`NEXT_PUBLIC_*` variables into the browser bundle at build time.

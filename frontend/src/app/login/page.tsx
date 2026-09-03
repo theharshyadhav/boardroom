@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Boxes, Crown, Wallet, Megaphone, MapPin } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { api } from "@/lib/api";
+import { api, API_URL } from "@/lib/api";
 
 const ICONS: Record<string, React.ElementType> = { ceo: Crown, finance: Wallet, marketing: Megaphone, regional: MapPin };
 const DESCS: Record<string, string> = {
@@ -47,7 +47,7 @@ export default function LoginPage() {
         <div className="flex flex-col gap-2">
           {roles.length === 0 && (
             <div className="text-[12px] text-[var(--text-tertiary)] py-4">
-              Couldn&apos;t reach the BoardMind API — is the backend running on {process.env.NEXT_PUBLIC_API_URL || "https://boardroom-api-25xh.onrender.com"}?
+              Couldn&apos;t reach the BoardMind API — is the backend running on {API_URL}?
             </div>
           )}
           {roles.map((r) => {

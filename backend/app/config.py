@@ -25,7 +25,12 @@ class Settings:
     DUCKDB_PATH: str = os.getenv("DUCKDB_PATH", ":memory:")
 
     DATA_SEED: int = int(os.getenv("DATA_SEED", "20260822"))
-    CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    CORS_ORIGINS: list = [
+        origin.strip()
+        for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+        if origin.strip()
+    ]
+    CORS_ORIGIN_REGEX: str = os.getenv("CORS_ORIGIN_REGEX", r"https://[a-z0-9-]+\.vercel\.app")
 
 settings = Settings()
 
