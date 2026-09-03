@@ -47,7 +47,7 @@ export default function LoginPage() {
         <div className="flex flex-col gap-2">
           {roles.length === 0 && (
             <div className="text-[12px] text-[var(--text-tertiary)] py-4">
-              Couldn&apos;t reach the BoardMind API — is the backend running on {process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}?
+              Couldn&apos;t reach the BoardMind API — is the backend running on {process.env.NEXT_PUBLIC_API_URL || "https://boardroom-api-25xh.onrender.com"}?
             </div>
           )}
           {roles.map((r) => {
