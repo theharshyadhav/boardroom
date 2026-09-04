@@ -38,6 +38,13 @@ def _configure_logging():
 async def lifespan(app: FastAPI):
     _configure_logging()
     logger = logging.getLogger("boardmind.startup")
+    logger.info(
+        "CORS configuration: origins=%s origin_regex=%s methods=%s headers=%s",
+        settings.CORS_ORIGINS,
+        settings.CORS_ORIGIN_REGEX,
+        ["*"],
+        ["*"],
+    )
 
     instances = init_agents()
     logger.info("Initialized %d ADK agents: %s", len(instances), list(instances.keys()))

@@ -30,10 +30,15 @@ class Settings:
         for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
         if origin.strip()
     ]
-    # Permit HTTPS deployments by default; restrict this further with
-    # CORS_ORIGINS or CORS_ORIGIN_REGEX when the API is used privately.
-    CORS_ORIGIN_REGEX: str = os.getenv("CORS_ORIGIN_REGEX", "").strip() or (
-        r"https://([a-z0-9-]+\.)+[a-z]{2,}|https://localhost(:\d+)?"
+    CORS_ORIGINS = list(dict.fromkeys(CORS_ORIGINS + ["https://boardroom-six-nu.vercel.app"]))
+    _configured_cors_regex = os.getenv("CORS_ORIGIN_REGEX", "").strip()
+    CORS_ORIGIN_REGEX: str = "|".join(
+        part for part in [
+            r"https://.*\.vercel\.app",
+            r"https://([a-z0-9-]+\.)+[a-z]{2,}",
+            r"https://localhost(:\d+)?",
+            _configured_cors_regex,
+        ] if part
     )
 
 settings = Settings()
