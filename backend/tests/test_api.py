@@ -32,6 +32,21 @@ def test_roles_and_login():
     assert r.status_code == 400
 
 
+def test_roles_preflight_allows_vercel_frontend():
+    r = client.options(
+        "/api/auth/roles",
+        headers={
+            "Origin": "https://boardroom-six-nu.vercel.app",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["access-control-allow-origin"] == "https://boardroom-six-nu.vercel.app"
+    assert "content-type" in r.headers["access-control-allow-headers"]
+    assert "OPTIONS" in r.headers["access-control-allow-methods"]
+
+
 def test_data_freshness():
     r = client.get("/api/data/freshness")
     assert r.status_code == 200
