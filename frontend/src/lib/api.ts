@@ -3,7 +3,9 @@ import type {
   Recommendation, FeedbackStats, BoardroomMessage, SimulateResult, Telemetry, EvidenceGraph,
 } from "./types";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://boardroom-api-25xh.onrender.com";
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://boardroom-api-25xh.onrender.com")
+  .trim()
+  .replace(/\/+$/, "");
 const BASE = API_URL;
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
