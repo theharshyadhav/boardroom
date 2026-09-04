@@ -1,217 +1,194 @@
 /**
- * WebMCP tool registration for BoardMind Boardroom.
+ * WebMCP integration for BoardMind.
  *
- * Uses the real, current W3C WebMCP draft API (Web Machine Learning
- * Community Group, CG-DRAFT as of Aug 2026): `document.modelContext`,
- * with `registerTool({name, title, description, inputSchema, execute,
- * annotations})`. This is an experimental, in-progress spec behind an
- * origin trial in Chrome — `document.modelContext` will not exist in most
- * browsers today, so every call here is feature-detected and this module
- * no-ops cleanly when it's absent. See:
- * https://webmachinelearning.github.io/webmcp/
- *
- * These tools are not a bolted-on gimmick: they are the SAME endpoints the
- * Boardroom UI itself calls (lib/api.ts / this file share the API base
- * URL), so a browser agent using WebMCP and a human clicking buttons are
- * both driving the identical backend state — proposals, tasks, and the
- * activity feed are shared, live, and visible to both.
- *
- * Per the WebMCP threat model (spec §6.3.1), tool results that echo back
- * agent-authored text (proposal bodies, report contents) are marked
- * `untrustedContentHint: true` so a calling agent's model treats that
- * content as data, not instructions.
+ * WebMCP is experimental, so this module is deliberately optional: browsers
+ * without document.modelContext continue to use the application normally.
  */
-import { API_URL } from "./api";
+import { api } from "./api";
 
-type ToolExecute = (input: any) => Promise<any>;
+type ToolExecute = (input: Record<string, unknown>) => Promise<unknown>;
 
 interface ToolSpec {
   name: string;
   title: string;
   description: string;
-  inputSchema: object;
+  inputSchema: Record<string, unknown>;
   execute: ToolExecute;
   readOnlyHint?: boolean;
-  untrustedContentHint?: boolean;
+  consequentialHint?: boolean;
 }
 
-async function call(path: string, method: "GET" | "POST", body?: unknown) {
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(`${path} failed: ${res.status} ${await res.text()}`);
-  return res.json();
-}
+const emptySchema = { type: "object", properties: {} };
 
 const TOOLS: ToolSpec[] = [
+  // Exposes the current KPI snapshot, optionally scoped to a region.
   {
-    name: "create_project",
-    title: "Create Project",
-    description:
-      "Creates a new company initiative/product and notifies Marketing, Engineering, and HR " +
-      "agents, who each independently propose next steps for a human to approve.",
+    name: "get_kpis",
+    title: "Get KPIs",
+    description: "Returns BoardMind's current executive KPI snapshot, optionally filtered by region.",
+    inputSchema: { type: "object", properties: { region: { type: "string", description: "Optional region filter." } } },
+    execute: async ({ region }) => api.kpis(typeof region === "string" ? region : null),
+    readOnlyHint: true,
+  },
+  // Exposes material business events detected by the deterministic analytics layer.
+  {
+    name: "get_events",
+    title: "Get Material Events",
+    description: "Returns material business events detected by BoardMind, optionally filtered by region.",
+    inputSchema: { type: "object", properties: { region: { type: "string", description: "Optional region filter." } } },
+    execute: async ({ region }) => api.events(typeof region === "string" ? region : null),
+    readOnlyHint: true,
+  },
+  // Exposes the price, volume, and other driver decomposition for detected changes.
+  {
+    name: "get_driver_tree",
+    title: "Get Driver Tree",
+    description: "Returns the deterministic driver tree explaining the main business changes.",
+    inputSchema: emptySchema,
+    execute: async () => api.driverTree(),
+    readOnlyHint: true,
+  },
+  // Exposes the source-to-insight evidence graph used for traceability.
+  {
+    name: "get_evidence",
+    title: "Get Evidence",
+    description: "Returns the evidence graph linking data sources, KPIs, and material events.",
+    inputSchema: emptySchema,
+    execute: async () => api.evidenceGraph(),
+    readOnlyHint: true,
+  },
+  // Exposes transparent, deterministic recommendations from the existing engine.
+  {
+    name: "get_recommendations",
+    title: "Get Recommendations",
+    description: "Returns BoardMind's current explainable recommendations for executive action.",
+    inputSchema: emptySchema,
+    execute: async () => api.recommendations(),
+    readOnlyHint: true,
+  },
+  // Exposes the narrative endpoint, which phrases already-computed numbers for a persona.
+  {
+    name: "generate_summary",
+    title: "Generate Executive Summary",
+    description: "Generates an executive summary for the requested BoardMind persona.",
     inputSchema: {
       type: "object",
-      properties: { goal: { type: "string", description: "The product/initiative goal, e.g. 'Launch an AI resume builder in one month'" } },
+      properties: { persona: { type: "string", description: "Audience persona, such as ceo or finance." } },
+      required: ["persona"],
+    },
+    execute: async ({ persona }) => api.summary(typeof persona === "string" ? persona : "ceo"),
+  },
+  // Runs the existing business simulation with explicit decision levers.
+  {
+    name: "run_business_simulation",
+    title: "Run Business Simulation",
+    description: "Simulates business outcomes using BoardMind's existing decision simulation engine.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        region: { type: "string", description: "Optional region to simulate." },
+        priceChangePct: { type: "number", description: "Price change percentage." },
+        marketingSpendPct: { type: "number", description: "Marketing spend change percentage." },
+        inventoryInvestPct: { type: "number", description: "Inventory investment change percentage." },
+        supplierSwitch: { type: "boolean", description: "Whether to switch supplier." },
+      },
+      required: ["priceChangePct", "marketingSpendPct", "inventoryInvestPct", "supplierSwitch"],
+    },
+    execute: async ({ region, priceChangePct, marketingSpendPct, inventoryInvestPct, supplierSwitch }) =>
+      api.simulate(typeof region === "string" ? region : null, {
+        priceChangePct: Number(priceChangePct),
+        marketingSpendPct: Number(marketingSpendPct),
+        inventoryInvestPct: Number(inventoryInvestPct),
+        supplierSwitch: supplierSwitch === true,
+      }),
+  },
+  // Exposes the registered enterprise agents and their current health.
+  {
+    name: "get_agents",
+    title: "Get Agents",
+    description: "Returns BoardMind's registered enterprise agents, capabilities, and health status.",
+    inputSchema: emptySchema,
+    execute: async () => api.agents(),
+    readOnlyHint: true,
+  },
+  // Starts the real Boardroom workflow and returns its workflow identifier.
+  {
+    name: "launch_boardroom_workflow",
+    title: "Launch Boardroom Workflow",
+    description: "Launches a Boardroom initiative workflow for the supplied goal and role.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        goal: { type: "string", description: "Initiative or business goal." },
+        role: { type: "string", description: "Launching role, defaulting to ceo." },
+      },
       required: ["goal"],
     },
-    execute: async ({ goal }) => call("/api/boardroom/launch", "POST", { goal, role: "ceo" }),
+    execute: async ({ goal, role }) => api.launchProject(String(goal), typeof role === "string" ? role : "ceo"),
+    consequentialHint: true,
   },
+  // Exposes the live Boardroom dashboard derived from proposals, tasks, and activity.
   {
-    name: "assign_task",
-    title: "Assign Task",
-    description: "Assigns a task to an owner within a department.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        title: { type: "string" },
-        owner: { type: "string" },
-        department: { type: "string" },
-        deadline: { type: "string", description: "ISO date, optional" },
-      },
-      required: ["title", "owner"],
-    },
-    execute: async (input) => call("/api/boardroom/tasks", "POST", { ...input, kind: "task" }),
-  },
-  {
-    name: "generate_campaign",
-    title: "Generate Campaign",
-    description:
-      "Asks the Marketing Agent to propose launch strategies for a given goal. Returns a pending " +
-      "proposal id that a human must approve before Design is engaged.",
-    inputSchema: { type: "object", properties: { goal: { type: "string" } }, required: ["goal"] },
-    execute: async ({ goal }) => call("/api/boardroom/launch", "POST", { goal, role: "cmo" }),
-    untrustedContentHint: true,
-  },
-  {
-    name: "create_design",
-    title: "Create Design",
-    description: "Reads the latest pending design proposal (landing page concepts) for review.",
-    inputSchema: { type: "object", properties: {} },
-    execute: async () => {
-      const proposals = await call("/api/boardroom/proposals?status=pending", "GET");
-      return proposals.filter((p: any) => p.kind === "design_concepts");
-    },
-    readOnlyHint: true,
-    untrustedContentHint: true,
-  },
-  {
-    name: "estimate_budget",
-    title: "Estimate Budget",
-    description: "Reads the latest pending budget review proposal from Finance.",
-    inputSchema: { type: "object", properties: {} },
-    execute: async () => {
-      const proposals = await call("/api/boardroom/proposals?status=pending", "GET");
-      return proposals.filter((p: any) => p.kind === "budget_review");
-    },
-    readOnlyHint: true,
-    untrustedContentHint: true,
-  },
-  {
-    name: "approve_budget",
-    title: "Approve Budget",
-    description: "Approves (or reduces) a pending Finance budget-review proposal by its id.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        proposalId: { type: "string" },
-        decision: { type: "string", enum: ["approve_anyway", "reduce_budget"] },
-        role: { type: "string", description: "Approver's role, e.g. cfo" },
-      },
-      required: ["proposalId", "decision", "role"],
-    },
-    execute: async ({ proposalId, decision, role }) =>
-      call(`/api/boardroom/proposals/${proposalId}/decision`, "POST", { decision, role }),
-  },
-  {
-    name: "launch_campaign",
-    title: "Launch Campaign",
-    description: "Approves a pending Marketing campaign-strategy proposal, which engages Design next.",
-    inputSchema: {
-      type: "object",
-      properties: { proposalId: { type: "string" }, role: { type: "string" } },
-      required: ["proposalId", "role"],
-    },
-    execute: async ({ proposalId, role }) =>
-      call(`/api/boardroom/proposals/${proposalId}/decision`, "POST", { decision: "approve", role }),
-  },
-  {
-    name: "publish_website",
-    title: "Publish Website",
-    description: "Approves a pending Design landing-page-concept proposal, marking it selected for publish.",
-    inputSchema: {
-      type: "object",
-      properties: { proposalId: { type: "string" }, role: { type: "string" } },
-      required: ["proposalId", "role"],
-    },
-    execute: async ({ proposalId, role }) =>
-      call(`/api/boardroom/proposals/${proposalId}/decision`, "POST", { decision: "approve", role }),
-  },
-  {
-    name: "update_deadline",
-    title: "Update Deadline",
-    description: "Updates the deadline on an existing task.",
-    inputSchema: {
-      type: "object",
-      properties: { taskId: { type: "string" }, deadline: { type: "string" } },
-      required: ["taskId", "deadline"],
-    },
-    execute: async ({ taskId, deadline }) => call(`/api/boardroom/tasks/${taskId}/deadline`, "POST", { deadline }),
-  },
-  {
-    name: "generate_report",
-    title: "Generate Report",
-    description: "Returns the current company workspace dashboard (health score, budget, sprint, campaign status).",
-    inputSchema: { type: "object", properties: {} },
-    execute: async () => call("/api/boardroom/dashboard", "GET"),
+    name: "get_boardroom_dashboard",
+    title: "Get Boardroom Dashboard",
+    description: "Returns the current Boardroom health, budget, sprint, campaign, and approval dashboard.",
+    inputSchema: emptySchema,
+    execute: async () => api.boardroomDashboard(),
     readOnlyHint: true,
   },
+  // Exposes Boardroom tasks, optionally filtered by status.
   {
-    name: "hire_contractor",
-    title: "Hire Contractor",
-    description: "Approves a pending HR contractor-hire proposal by its id.",
-    inputSchema: {
-      type: "object",
-      properties: { proposalId: { type: "string" }, role: { type: "string" } },
-      required: ["proposalId", "role"],
-    },
-    execute: async ({ proposalId, role }) =>
-      call(`/api/boardroom/proposals/${proposalId}/decision`, "POST", { decision: "approve", role }),
+    name: "get_tasks",
+    title: "Get Boardroom Tasks",
+    description: "Returns Boardroom tasks, optionally filtered by task status.",
+    inputSchema: { type: "object", properties: { status: { type: "string", description: "Optional task status filter." } } },
+    execute: async ({ status }) => api.tasks(typeof status === "string" ? status : undefined),
+    readOnlyHint: true,
   },
+  // Exposes runtime observability metrics for the agent platform.
   {
-    name: "create_sprint",
-    title: "Create Sprint",
-    description: "Creates a sprint-tracking task for the Engineering department.",
-    inputSchema: {
-      type: "object",
-      properties: { title: { type: "string" }, owner: { type: "string" }, deadline: { type: "string" } },
-      required: ["title", "owner"],
-    },
-    execute: async (input) => call("/api/boardroom/tasks", "POST", { ...input, department: "engineering", kind: "sprint" }),
+    name: "get_observability",
+    title: "Get Observability",
+    description: "Returns BoardMind agent execution, workflow, failure, and LLM telemetry metrics.",
+    inputSchema: emptySchema,
+    execute: async () => api.obsSummary(),
+    readOnlyHint: true,
   },
+  // Checks whether the deployed FastAPI backend is healthy.
   {
-    name: "complete_task",
-    title: "Complete Task",
-    description: "Marks a task complete.",
-    inputSchema: { type: "object", properties: { taskId: { type: "string" } }, required: ["taskId"] },
-    execute: async ({ taskId }) => call(`/api/boardroom/tasks/${taskId}/complete`, "POST"),
+    name: "health_check",
+    title: "Health Check",
+    description: "Checks the health of the deployed BoardMind backend API.",
+    inputSchema: emptySchema,
+    execute: async () => api.health(),
+    readOnlyHint: true,
   },
 ];
 
 let registered = false;
+let registrationPromise: Promise<{ supported: boolean; registered: number }> | null = null;
 
-/** Feature-detects `document.modelContext` and registers every Boardroom
- * tool if present. Safe to call multiple times (idempotent) and safe to
- * call in browsers without WebMCP support (no-ops). */
-export async function registerBoardroomWebMcpTools(): Promise<{ supported: boolean; registered: number }> {
+/** Registers all BoardMind tools when the browser implements WebMCP. */
+export async function registerWebMcpTools(): Promise<{ supported: boolean; registered: number }> {
+  if (registrationPromise) return registrationPromise;
+
+  registrationPromise = registerToolsOnce();
+  return registrationPromise;
+}
+
+async function registerToolsOnce(): Promise<{ supported: boolean; registered: number }> {
   if (typeof document === "undefined" || !("modelContext" in document)) {
+    return { supported: false, registered: 0 };
+  }
+
+  const modelContext = (document as Document & {
+    modelContext?: { registerTool: (tool: Record<string, unknown>) => void | Promise<void> };
+  }).modelContext;
+  if (!modelContext || typeof modelContext.registerTool !== "function") {
     return { supported: false, registered: 0 };
   }
   if (registered) return { supported: true, registered: TOOLS.length };
 
-  const modelContext = (document as any).modelContext;
   let count = 0;
   for (const tool of TOOLS) {
     try {
@@ -220,21 +197,31 @@ export async function registerBoardroomWebMcpTools(): Promise<{ supported: boole
         title: tool.title,
         description: tool.description,
         inputSchema: tool.inputSchema,
-        execute: tool.execute,
+        execute: async (input: Record<string, unknown>) => {
+          try {
+            return await tool.execute(input);
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : "WebMCP tool execution failed",
+            };
+          }
+        },
         annotations: {
-          readOnlyHint: !!tool.readOnlyHint,
-          untrustedContentHint: !!tool.untrustedContentHint,
+          readOnlyHint: tool.readOnlyHint === true,
+          consequentialHint: tool.consequentialHint === true,
         },
       });
       count++;
-    } catch (err) {
-      // A tool with the same name may already be registered (e.g. React
-      // strict-mode double-invoke in dev) — safe to ignore.
-      console.warn(`WebMCP: failed to register tool "${tool.name}"`, err);
+    } catch (error) {
+      console.warn(`WebMCP: failed to register tool "${tool.name}"`, error);
     }
   }
   registered = true;
+  console.log(`Registered ${count} WebMCP tools`);
   return { supported: true, registered: count };
 }
 
-export const BOARDROOM_WEBMCP_TOOL_NAMES = TOOLS.map((t) => t.name);
+// Kept for the existing Boardroom status panel; registration is now app-wide.
+export const registerBoardroomWebMcpTools = registerWebMcpTools;
+export const BOARDROOM_WEBMCP_TOOL_NAMES = TOOLS.map((tool) => tool.name);

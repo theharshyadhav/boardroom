@@ -70,6 +70,32 @@ yourself before relying on them live on stage — Anthropic is the only provider
 codebase has been proven against with a real network call.
 
 
+## WebMCP Integration
+
+BoardMind exposes its existing backend capabilities as discoverable WebMCP tools so a compatible browser agent can inspect business context and launch the same workflows available in the application. WebMCP is optional: browsers without `document.modelContext` skip registration and the normal application is unchanged.
+
+The integration registers these tools:
+
+`get_kpis`, `get_events`, `get_driver_tree`, `get_evidence`, `get_recommendations`, `generate_summary`, `run_business_simulation`, `get_agents`, `launch_boardroom_workflow`, `get_boardroom_dashboard`, `get_tasks`, `get_observability`, and `health_check`.
+
+When the application loads, `frontend/src/lib/webmcp.ts` feature-detects `document.modelContext` and calls `document.modelContext.registerTool(...)` for each tool. A compatible agent discovers the registered names, descriptions, and JSON Schema input objects through the browser's WebMCP model context. Each tool delegates to the typed API helper in `frontend/src/lib/api.ts`, which calls the corresponding FastAPI route; no backend business logic or separate fetch implementation is duplicated in the WebMCP layer.
+
+## Exposed WebMCP Tools
+
+- get_kpis
+- get_events
+- get_driver_tree
+- get_evidence
+- get_recommendations
+- generate_summary
+- run_business_simulation
+- get_agents
+- launch_boardroom_workflow
+- get_boardroom_dashboard
+- get_tasks
+- get_observability
+- health_check
+
 ## Troubleshooting
 
 **`pip install` tries to compile pandas/numpy from source and fails** (common on
