@@ -31,15 +31,7 @@ class Settings:
         if origin.strip()
     ]
     CORS_ORIGINS = list(dict.fromkeys(CORS_ORIGINS + ["https://boardroom-six-nu.vercel.app"]))
-    _configured_cors_regex = os.getenv("CORS_ORIGIN_REGEX", "").strip()
-    CORS_ORIGIN_REGEX: str = "|".join(
-        part for part in [
-            r"https://.*\.vercel\.app",
-            r"https://([a-z0-9-]+\.)+[a-z]{2,}",
-            r"https://localhost(:\d+)?",
-            _configured_cors_regex,
-        ] if part
-    )
+    CORS_ORIGIN_REGEX: str = r"^(https://.*\.vercel\.app|http://localhost(:\d+)?)$"
 
 settings = Settings()
 
