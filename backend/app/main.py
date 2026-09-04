@@ -1,4 +1,5 @@
 import logging
+import importlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -25,7 +26,7 @@ def _configure_logging():
     logging.basicConfig(level=logging.INFO)
     if gcp_settings.CLOUD_LOGGING_ENABLED and gcp_settings.configured():
         try:
-            import google.cloud.logging as cloud_logging
+            cloud_logging = importlib.import_module("google.cloud.logging")
             client = cloud_logging.Client(project=gcp_settings.PROJECT_ID)
             client.setup_logging(log_level=logging.INFO)
         except Exception:  # noqa: BLE001
